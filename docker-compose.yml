@@ -1,0 +1,49 @@
+services:
+  litellm:
+    image: ghcr.io/berriai/litellm:main-stable
+    container_name: litellm-airs
+    ports:
+      - "4000:4000"
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@postgres:5432/litellm
+      - STORE_MODEL_IN_DB=false
+    volumes:
+      - ./litellm-config.yaml:/app/config.yaml
+      # Uncomment to use ambient AWS credentials from host instead of env vars:
+      # - ~/.aws:/root/.aws:ro
+      # In an SSL-inspecting network, mount and trust your corporate CA bundle:
+      # - /path/to/corp-ca.pem:/etc/ssl/certs/corp-ca.pem:ro
+    command: --config /app/config.yaml --port 4000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:4000/health/liveliness"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: litellm-db
+    environment:
+      - POSTGRES_DB=litellm
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:

@@ -1,0 +1,72 @@
+# LiteLLM proxy config with Prisma AIRS guardrails.
+# Drop-in addition to an existing LiteLLM deployment:
+#   1. Add the `guardrails` block (bottom of this file)
+#   2. Add `guardrails: [airs-pre-call, airs-post-call]` to each protected model
+#   3. Set AIRS_API_KEY and AIRS_API_PROFILE_NAME
+#   4. Restart LiteLLM
+#
+# Backends below are examples - replace with the providers/models you use.
+
+model_list:
+
+  # --- Azure OpenAI (example) ---
+  - model_name: azure-gpt-4.1
+    litellm_params:
+      model: azure/gpt-4.1
+      api_base: os.environ/AZURE_API_BASE          # https://<your-resource>.openai.azure.com
+      api_key: os.environ/AZURE_API_KEY
+      api_version: os.environ/AZURE_API_VERSION    # e.g. 2025-01-01-preview
+      guardrails: [airs-pre-call, airs-post-call]
+
+  # --- AWS Bedrock: Claude (example - set the model ID you have access to) ---
+  - model_name: bedrock-claude
+    litellm_params:
+      model: bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0
+      aws_region_name: os.environ/AWS_REGION
+      guardrails: [airs-pre-call, airs-post-call]
+
+  # --- Anthropic direct (example) ---
+  - model_name: claude-direct
+    litellm_params:
+      model: anthropic/claude-3-5-sonnet-latest
+      api_key: os.environ/ANTHROPIC_API_KEY
+      guardrails: [airs-pre-call, airs-post-call]
+
+# --- Prisma AIRS guardrails ---
+# Requires AIRS_API_KEY (x-pan-token from SCM) and AIRS_API_PROFILE_NAME.
+#
+# `timeout` MUST be a bare number, never a quoted string. A string timeout (which
+# the LiteLLM dashboard UI writes) makes every request fail with "security scan
+# failed" even though no scan is sent. `timeout: 30` is recommended: in enterprise
+# networks the default can intermittently time out the scan call, which fails closed.
+#
+# Use `pre_call` + `post_call` (below). Do NOT use `during_call` with tool-using
+# agents: that path tags tool_events `ecosystem: openai`, which the AIRS scan API
+# rejects today. pre/post_call scan prompt and response text (tool-call arguments
+# are folded into the response text) and are unaffected.
+guardrails:
+  - guardrail_name: "airs-pre-call"
+    litellm_params:
+      guardrail: panw_prisma_airs
+      mode: "pre_call"
+      api_key: os.environ/AIRS_API_KEY
+      profile_name: os.environ/AIRS_API_PROFILE_NAME
+      api_base: "https://service.api.aisecurity.paloaltonetworks.com"
+      timeout: 30
+      default_on: true
+
+  - guardrail_name: "airs-post-call"
+    litellm_params:
+      guardrail: panw_prisma_airs
+      mode: "post_call"
+      api_key: os.environ/AIRS_API_KEY
+      profile_name: os.environ/AIRS_API_PROFILE_NAME
+      api_base: "https://service.api.aisecurity.paloaltonetworks.com"
+      timeout: 30
+      default_on: true
+
+litellm_settings:
+  drop_params: true
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY

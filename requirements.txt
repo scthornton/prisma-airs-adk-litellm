@@ -1,0 +1,6 @@
+# For the ADK examples. The LiteLLM proxy itself runs from docker-compose
+# (or `pip install "litellm[proxy]"` if you run it locally).
+# google-adk 1.3.4 is not on public PyPI; 1.3.0 is the closest public release and
+# is what this repo was verified against. The LiteLlm class API is stable across 1.x.
+google-adk>=1.3.0
+litellm>=1.89
